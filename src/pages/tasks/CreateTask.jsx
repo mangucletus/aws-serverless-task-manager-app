@@ -8,22 +8,23 @@ import {
   TextAreaField,
   SelectField,
   Button,
-  DatePicker,
   Text,
   Divider,
   Badge,
   Alert,
 } from "@aws-amplify/ui-react";
-import { 
+import {
   ChevronLeft,
   Calendar,
   MapPin,
   Clock,
   AlertTriangle,
-  CheckCircle
+  CheckCircle,
 } from "lucide-react";
 import { generateClient } from "aws-amplify/data";
 import { toast } from "react-toastify";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 const client = generateClient();
 
@@ -35,7 +36,7 @@ const CreateTask = () => {
     description: "",
     status: "PENDING",
     priority: "MEDIUM",
-    deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Default to 1 week from now
+    deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     location: "",
     assignedToId: "",
   });
@@ -44,21 +45,17 @@ const CreateTask = () => {
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
-    // Check if user is admin
     if (userProfile && userProfile.role !== "ADMIN") {
       navigate("/");
       return;
     }
 
-    // Fetch team members
     const fetchTeamMembers = async () => {
       try {
         const { data } = await client.models.UserProfile.list({
           filter: {
-            role: {
-              eq: "TEAM_MEMBER"
-            }
-          }
+            role: { eq: "TEAM_MEMBER" },
+          },
         });
         setTeamMembers(data);
       } catch (error) {
@@ -73,8 +70,7 @@ const CreateTask = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormState((prev) => ({ ...prev, [name]: value }));
-    
-    // Clear error when field is updated
+
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: null }));
     }
@@ -82,41 +78,28 @@ const CreateTask = () => {
 
   const validateForm = () => {
     const newErrors = {};
-    
-    if (!formState.title.trim()) {
-      newErrors.title = "Title is required";
-    }
-    
-    if (!formState.description.trim()) {
-      newErrors.description = "Description is required";
-    }
-    
-    if (!formState.assignedToId) {
-      newErrors.assignedToId = "Please select a team member";
-    }
-    
+    if (!formState.title.trim()) newErrors.title = "Title is required";
+    if (!formState.description.trim()) newErrors.description = "Description is required";
+    if (!formState.assignedToId) newErrors.assignedToId = "Please select a team member";
     if (!formState.deadline) {
       newErrors.deadline = "Deadline is required";
     } else if (new Date(formState.deadline) < new Date()) {
       newErrors.deadline = "Deadline cannot be in the past";
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
     if (!validateForm()) {
       toast.error("Please fix the errors in the form");
       return;
     }
-    
+
     try {
       setIsSubmitting(true);
-      
-      // Create the task
       const { data: newTask } = await client.models.Task.create({
         title: formState.title,
         description: formState.description,
@@ -128,16 +111,15 @@ const CreateTask = () => {
         createdBy: { id: userProfile.id },
         isNotified: false,
       });
-      
-      // Create notification for the assigned team member
+
       await client.models.Notification.create({
         message: `You have been assigned a new task: "${formState.title}"`,
         type: "ASSIGNMENT",
         isRead: false,
         user: { id: formState.assignedToId },
-        task: { id: newTask.id }
+        task: { id: newTask.id },
       });
-      
+
       toast.success("Task created successfully");
       navigate("/admin/dashboard");
     } catch (error) {
@@ -151,11 +133,7 @@ const CreateTask = () => {
   return (
     <Flex direction="column" gap="2rem">
       <Flex alignItems="center" gap="0.5rem">
-        <Button
-          variation="link"
-          onClick={() => navigate("/admin/dashboard")}
-          padding="0"
-        >
+        <Button variation="link" onClick={() => navigate("/admin/dashboard")} padding="0">
           <ChevronLeft size={20} />
         </Button>
         <Heading level={4}>Create New Task</Heading>
@@ -170,7 +148,7 @@ const CreateTask = () => {
               placeholder="Enter task title"
               value={formState.title}
               onChange={handleChange}
-              isRequired={true}
+              isRequired
               hasError={!!errors.title}
               errorMessage={errors.title}
             />
@@ -182,15 +160,12 @@ const CreateTask = () => {
               rows={4}
               value={formState.description}
               onChange={handleChange}
-              isRequired={true}
+              isRequired
               hasError={!!errors.description}
               errorMessage={errors.description}
             />
 
-            <Flex 
-              direction={{ base: "column", medium: "row" }} 
-              gap="1rem"
-            >
+            <Flex direction={{ base: "column", medium: "row" }} gap="1rem">
               <SelectField
                 label="Priority"
                 name="priority"
@@ -215,10 +190,7 @@ const CreateTask = () => {
               </SelectField>
             </Flex>
 
-            <Flex 
-              direction={{ base: "column", medium: "row" }} 
-              gap="1rem"
-            >
+            <Flex direction={{ base: "column", medium: "row" }} gap="1rem">
               <SelectField
                 label="Assign To"
                 name="assignedToId"
@@ -226,7 +198,7 @@ const CreateTask = () => {
                 onChange={handleChange}
                 placeholder="Select team member"
                 flex="1"
-                isRequired={true}
+                isRequired
                 hasError={!!errors.assignedToId}
                 errorMessage={errors.assignedToId}
               >
@@ -239,24 +211,19 @@ const CreateTask = () => {
               </SelectField>
 
               <Flex direction="column" flex="1">
-                <Text
-                  fontSize="0.875rem"
-                  color="font.secondary"
-                  paddingBottom="0.25rem"
-                >
+                <Text fontSize="0.875rem" color="font.secondary" paddingBottom="0.25rem">
                   Deadline*
                 </Text>
                 <DatePicker
-                  name="deadline"
-                  value={formState.deadline}
+                  selected={formState.deadline}
                   onChange={(date) => {
                     setFormState((prev) => ({ ...prev, deadline: date }));
                     if (errors.deadline) {
                       setErrors((prev) => ({ ...prev, deadline: null }));
                     }
                   }}
-                  hasError={!!errors.deadline}
-                  errorMessage={errors.deadline}
+                  dateFormat="yyyy-MM-dd"
+                  className="amplify-textfield__input"
                 />
                 {errors.deadline && (
                   <Text fontSize="0.75rem" color="error.80" paddingTop="0.25rem">
@@ -276,38 +243,22 @@ const CreateTask = () => {
 
             <Divider />
 
-            <Flex 
-              justifyContent="space-between"
-              direction={{ base: "column", medium: "row" }}
-              gap="1rem"
-            >
-              <Button
-                onClick={() => navigate("/admin/dashboard")}
-                variation="link"
-                type="button"
-              >
+            <Flex justifyContent="space-between" direction={{ base: "column", medium: "row" }} gap="1rem">
+              <Button onClick={() => navigate("/admin/dashboard")} variation="link" type="button">
                 Cancel
               </Button>
-              
+
               <Flex gap="1rem">
                 <Button
-                  onClick={() => {
-                    // Save as draft functionality could be added here
-                    toast.info("Draft functionality not implemented yet");
-                  }}
+                  onClick={() => toast.info("Draft functionality not implemented yet")}
                   variation="link"
                   type="button"
                   isDisabled={isSubmitting}
                 >
                   Save as Draft
                 </Button>
-                
-                <Button
-                  type="submit"
-                  variation="primary"
-                  isLoading={isSubmitting}
-                  loadingText="Creating..."
-                >
+
+                <Button type="submit" variation="primary" isLoading={isSubmitting} loadingText="Creating...">
                   Create Task
                 </Button>
               </Flex>

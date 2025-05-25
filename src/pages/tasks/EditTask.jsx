@@ -8,7 +8,6 @@ import {
   TextAreaField,
   SelectField,
   Button,
-  DatePicker,
   Text,
   Divider,
   Loader,
@@ -41,7 +40,6 @@ const EditTask = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    // Check if user is admin
     if (userProfile && userProfile.role !== "ADMIN") {
       navigate("/");
       return;
@@ -50,18 +48,15 @@ const EditTask = () => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        
-        // Fetch task
         const { data: taskData } = await client.models.Task.get({ id });
-        
+
         if (!taskData) {
           setError("Task not found");
           return;
         }
-        
+
         setTask(taskData);
-        
-        // Set form state
+
         setFormState({
           title: taskData.title,
           description: taskData.description,
@@ -71,15 +66,11 @@ const EditTask = () => {
           location: taskData.location || "",
           assignedToId: taskData.assignedTo.id,
         });
-        
-        // Fetch team members
+
         const { data: members } = await client.models.UserProfile.list({
-          filter: {
-            role: {
-              eq: "TEAM_MEMBER"
-            }
-          }
+          filter: { role: { eq: "TEAM_MEMBER" } },
         });
+
         setTeamMembers(members);
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -95,8 +86,6 @@ const EditTask = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormState((prev) => ({ ...prev, [name]: value }));
-    
-    // Clear error when field is updated
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: null }));
     }
@@ -104,44 +93,30 @@ const EditTask = () => {
 
   const validateForm = () => {
     const newErrors = {};
-    
-    if (!formState.title.trim()) {
-      newErrors.title = "Title is required";
-    }
-    
-    if (!formState.description.trim()) {
-      newErrors.description = "Description is required";
-    }
-    
-    if (!formState.assignedToId) {
-      newErrors.assignedToId = "Please select a team member";
-    }
-    
+    if (!formState.title.trim()) newErrors.title = "Title is required";
+    if (!formState.description.trim()) newErrors.description = "Description is required";
+    if (!formState.assignedToId) newErrors.assignedToId = "Please select a team member";
     if (!formState.deadline) {
       newErrors.deadline = "Deadline is required";
     } else if (new Date(formState.deadline) < new Date() && formState.status !== "COMPLETED") {
       newErrors.deadline = "Deadline cannot be in the past for incomplete tasks";
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
     if (!validateForm()) {
       toast.error("Please fix the errors in the form");
       return;
     }
-    
+
     try {
       setIsSubmitting(true);
-      
-      // Check if assigned team member changed
       const isAssigneeChanged = task.assignedTo.id !== formState.assignedToId;
-      
-      // Update the task
+
       const { data: updatedTask } = await client.models.Task.update({
         id: task.id,
         title: formState.title,
@@ -152,18 +127,17 @@ const EditTask = () => {
         location: formState.location || null,
         assignedTo: { id: formState.assignedToId },
       });
-      
-      // If assignee changed, create notification for the new assignee
+
       if (isAssigneeChanged) {
         await client.models.Notification.create({
           message: `You have been assigned to task: "${formState.title}"`,
           type: "ASSIGNMENT",
           isRead: false,
           user: { id: formState.assignedToId },
-          task: { id: task.id }
+          task: { id: task.id },
         });
       }
-      
+
       toast.success("Task updated successfully");
       navigate(`/tasks/view/${task.id}`);
     } catch (error) {
@@ -226,10 +200,7 @@ const EditTask = () => {
               errorMessage={errors.description}
             />
 
-            <Flex 
-              direction={{ base: "column", medium: "row" }} 
-              gap="1rem"
-            >
+            <Flex direction={{ base: "column", medium: "row" }} gap="1rem">
               <SelectField
                 label="Priority"
                 name="priority"
@@ -256,10 +227,7 @@ const EditTask = () => {
               </SelectField>
             </Flex>
 
-            <Flex 
-              direction={{ base: "column", medium: "row" }} 
-              gap="1rem"
-            >
+            <Flex direction={{ base: "column", medium: "row" }} gap="1rem">
               <SelectField
                 label="Assign To"
                 name="assignedToId"
@@ -287,23 +255,21 @@ const EditTask = () => {
                 >
                   Deadline*
                 </Text>
-                <DatePicker
+                <TextField
+                  type="date"
                   name="deadline"
-                  value={formState.deadline}
-                  onChange={(date) => {
+                  value={formState.deadline.toISOString().split("T")[0]}
+                  onChange={(e) => {
+                    const date = new Date(e.target.value);
                     setFormState((prev) => ({ ...prev, deadline: date }));
                     if (errors.deadline) {
                       setErrors((prev) => ({ ...prev, deadline: null }));
                     }
                   }}
+                  isRequired={true}
                   hasError={!!errors.deadline}
                   errorMessage={errors.deadline}
                 />
-                {errors.deadline && (
-                  <Text fontSize="0.75rem" color="error.80" paddingTop="0.25rem">
-                    {errors.deadline}
-                  </Text>
-                )}
               </Flex>
             </Flex>
 
@@ -317,7 +283,7 @@ const EditTask = () => {
 
             <Divider />
 
-            <Flex 
+            <Flex
               justifyContent="space-between"
               direction={{ base: "column", medium: "row" }}
               gap="1rem"
@@ -329,7 +295,7 @@ const EditTask = () => {
               >
                 Cancel
               </Button>
-              
+
               <Button
                 type="submit"
                 variation="primary"
